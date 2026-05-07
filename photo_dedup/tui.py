@@ -389,7 +389,7 @@ Screen {
 
 
 class PhotoDedupApp(App):
-    TITLE = "Photo Dedup"
+    TITLE = "ella — assistente fotográfica"
     CSS = CSS
 
     def __init__(self, directory: Path, threshold: int, recursive: bool) -> None:

@@ -1,4 +1,4 @@
-# Photo Dedup
+# ella — assistente fotográfica
 
 TUI para encontrar fotos similares, pontuar a qualidade de cada uma e mover as duplicatas para uma pasta separada.
 
