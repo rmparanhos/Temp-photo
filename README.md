@@ -17,7 +17,8 @@ That's it. `ella` is now available as a command anywhere in your terminal.
 ## Usage
 
 ```bash
-ella ./your-photos
+ella                  # pick a folder from history
+ella ./your-photos    # scan a specific folder directly
 ```
 
 Optional flags:
@@ -36,7 +37,55 @@ Optional flags:
 | `S` | Skip group (no files touched) |
 | `Q` | Quit |
 
-At the end, a confirmation screen lists everything that will be moved. Duplicates go into `_duplicates/` inside the scanned folder.
+At the confirmation screen, choose how to handle duplicates:
+
+| Key | Action |
+|---|---|
+| `M` | Move duplicates to `_duplicates/` inside the scanned folder |
+| `X` | Write XMP sidecars (Lightroom Classic workflow — see below) |
+
+### History
+
+Running `ella` without arguments opens a history screen with your recently scanned folders. Select one and press `Enter` to re-run. Press `N` to enter a new folder path.
+
+---
+
+## Lightroom Classic workflow
+
+ella integrates with Lightroom Classic via XMP sidecar files — no plugin required.
+
+**1. Run ella on your Lightroom folder**
+
+Point ella directly at the folder where Lightroom already stores your originals:
+
+```bash
+ella ~/Pictures/Lightroom/2024/
+```
+
+**2. Review groups and confirm**
+
+Go through each group in the TUI. At the confirmation screen, press **X** (Write XMP).
+
+ella writes a `.xmp` file next to each duplicate marking it as rejected:
+
+```
+2024/
+├── IMG_001.jpg        ← keeper
+├── IMG_002.jpg        ← duplicate
+├── IMG_002.xmp        ← written by ella: lr:pickStatus = -1
+```
+
+**3. Read metadata in Lightroom**
+
+In Lightroom Classic: `Metadata → Read Metadata from Files`
+
+Lightroom picks up the XMP files and marks the duplicates as rejected (the `X` flag).
+
+**4. Delete rejected photos**
+
+`Photo → Delete Rejected Photos`
+
+Done. No export, no import, no duplicates in the catalog.
 
 ---
 

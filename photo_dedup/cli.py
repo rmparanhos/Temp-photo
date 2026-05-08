@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 from .tui import PhotoDedupApp
 
@@ -11,7 +12,12 @@ def main() -> None:
         prog="ella",
         description="ella — photo assistant. Finds similar photos and keeps the highest-quality one.",
     )
-    parser.add_argument("directory", type=Path, help="Folder to scan")
+    parser.add_argument(
+        "directory",
+        type=Path,
+        nargs="?",
+        help="Folder to scan (omit to pick from history)",
+    )
     parser.add_argument(
         "--threshold",
         type=int,
@@ -25,7 +31,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not args.directory.is_dir():
+    if args.directory and not args.directory.is_dir():
         print(f"Error: '{args.directory}' is not a folder.")
         raise SystemExit(1)
 

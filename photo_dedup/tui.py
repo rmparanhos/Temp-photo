@@ -8,11 +8,23 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Center, ScrollableContainer, Vertical
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Label, ProgressBar, Rule, Static
+from textual.screen import ModalScreen, Screen
+from textual.widgets import (
+    Footer,
+    Header,
+    Input,
+    Label,
+    ListItem,
+    ListView,
+    ProgressBar,
+    Rule,
+    Static,
+)
 
+from . import history as hist
 from .scanner import HASH_MAX_BITS, PhotoInfo, compute_hashes, group_similar, load_photos
 from .scorer import LABELS, WEIGHTS, score_group
+from .xmp import write_rejected
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -42,6 +54,90 @@ def _render_card(info: PhotoInfo, label: str, color: str, similarity: float) -> 
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# History screen
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NewFolderModal(ModalScreen):
+    BINDINGS = [Binding("escape", "dismiss_modal", "Cancel")]
+
+    def compose(self) -> ComposeResult:
+        with Center():
+            with Vertical(id="modal-body"):
+                yield Label("Enter folder path:")
+                yield Input(placeholder="~/Pictures/Lightroom/", id="path-input")
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(Path(event.value).expanduser().resolve())
+
+    def action_dismiss_modal(self) -> None:
+        self.dismiss(None)
+
+
+class HistoryScreen(Screen):
+    BINDINGS = [
+        Binding("n", "new_folder", "New folder"),
+        Binding("q", "quit_app", "Quit"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        entries = hist.load()
+        with ScrollableContainer():
+            if entries:
+                yield Static("[bold]Recent folders[/]\n", id="history-title")
+            yield ListView(
+                ListItem(Label("[bold green][+] New folder[/]"), id="new"),
+                *[
+                    ListItem(
+                        Static(
+                            f"[bold]{e.path}[/]"
+                            + (
+                                "  [dim](not found)[/]"
+                                if not e.path.exists()
+                                else f"  [dim]{hist.time_ago(e.last_run)}[/]"
+                            )
+                        ),
+                        id=f"entry-{i}",
+                    )
+                    for i, e in enumerate(entries)
+                ],
+                id="history-list",
+            )
+            if not entries:
+                yield Static(
+                    "[dim]No recent folders. Press N to scan a new folder.[/]",
+                    id="no-history",
+                )
+        yield Footer()
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        if event.item.id == "new":
+            self.action_new_folder()
+        else:
+            idx = int(event.item.id.split("-")[1])
+            path = hist.load()[idx].path
+            self._launch(path)
+
+    def action_new_folder(self) -> None:
+        def on_dismiss(path: Optional[Path]) -> None:
+            if path:
+                self._launch(path)
+
+        self.app.push_screen(NewFolderModal(), on_dismiss)
+
+    def _launch(self, path: Path) -> None:
+        if not path.is_dir():
+            self.notify(f"'{path}' is not a valid folder.", severity="error")
+            return
+        self.app.switch_screen(
+            ScanScreen(path, self.app._threshold, self.app._recursive)
+        )
+
+    def action_quit_app(self) -> None:
+        self.app.exit()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Scan screen
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -63,6 +159,7 @@ class ScanScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
+        hist.record(self._directory)
         self._run_scan()
 
     @work(thread=True)
@@ -79,9 +176,7 @@ class ScanScreen(Screen):
         )
 
         def on_progress(i: int) -> None:
-            self.call_from_thread(
-                self.query_one("#scan-bar", ProgressBar).advance, 1
-            )
+            self.call_from_thread(self.query_one("#scan-bar", ProgressBar).advance, 1)
             self.call_from_thread(
                 self.query_one("#scan-count", Label).update,
                 f"{i} / {self._total}",
@@ -161,16 +256,12 @@ class GroupScreen(Screen):
         for i, info in enumerate(self._group):
             card = self.query_one(f"#card-{i}", Static)
             if i == self._keeper_idx:
-                label = "★ KEEP"
-                color = "green"
-                similarity = 100.0
+                label, color, similarity = "★ KEEP", "green", 100.0
                 card.remove_class("card-delete")
                 card.add_class("card-keep")
             else:
-                label = "✗ MOVE"
-                color = "red"
-                distance = keeper.phash - info.phash
-                similarity = (1 - distance / HASH_MAX_BITS) * 100
+                label, color = "✗ MOVE", "red"
+                similarity = (1 - (keeper.phash - info.phash) / HASH_MAX_BITS) * 100
                 card.remove_class("card-keep")
                 card.add_class("card-delete")
             card.update(_render_card(info, label, color, similarity))
@@ -194,7 +285,7 @@ class GroupScreen(Screen):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Orchestrator screen — coordinates group-by-group review
+# Orchestrator screen
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ReviewOrchestrator(Screen):
@@ -208,7 +299,7 @@ class ReviewOrchestrator(Screen):
         super().__init__()
         self._groups = groups
         self._errors = errors
-        self._decisions: dict[int, int] = {}  # group_idx -> keeper_idx
+        self._decisions: dict[int, int] = {}
         self._current = 0
 
     def on_mount(self) -> None:
@@ -234,7 +325,7 @@ class ReviewOrchestrator(Screen):
         self.app.push_screen(screen, on_dismiss)
 
     def compose(self) -> ComposeResult:
-        yield Static("")  # placeholder, never actually visible
+        yield Static("")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -243,7 +334,8 @@ class ReviewOrchestrator(Screen):
 
 class ConfirmScreen(Screen):
     BINDINGS = [
-        Binding("enter,m", "move_files", "Move files"),
+        Binding("m", "move_files", "Move to _duplicates/"),
+        Binding("x", "write_xmp", "Write XMP (Lightroom)"),
         Binding("escape,q", "cancel", "Cancel"),
     ]
 
@@ -272,9 +364,9 @@ class ConfirmScreen(Screen):
         with ScrollableContainer():
             skipped = len(self._groups) - len(self._decisions)
             yield Static(
-                f"[bold]{len(self._to_move)} photo(s)[/] will be moved to "
-                f"[bold cyan]_duplicates/[/]\n"
-                f"[dim]{skipped} group(s) skipped[/]\n",
+                f"[bold]{len(self._to_move)} duplicate(s)[/] ready to process"
+                + (f"  [dim]({skipped} group(s) skipped)[/]" if skipped else "")
+                + "\n",
                 id="confirm-summary",
             )
             if self._errors:
@@ -285,7 +377,9 @@ class ConfirmScreen(Screen):
                 yield Static(f"  [dim]• {path.name}[/]")
             yield Rule()
             yield Static(
-                "[dim]Enter / M  move files   Esc / Q  cancel[/]"
+                "[dim]M  move to _duplicates/   "
+                "X  write XMP sidecars (Lightroom Classic)   "
+                "Esc  cancel[/]"
             )
         yield Footer()
 
@@ -301,7 +395,6 @@ class ConfirmScreen(Screen):
         moved = 0
         for path in self._to_move:
             target = dest / path.name
-            # Avoid name collision
             if target.exists():
                 stem, suffix = path.stem, path.suffix
                 counter = 1
@@ -313,8 +406,26 @@ class ConfirmScreen(Screen):
 
         self.app.exit(message=f"{moved} photo(s) moved to {dest}")
 
+    def action_write_xmp(self) -> None:
+        if not self._to_move:
+            self.app.exit(message="Nothing to process.")
+            return
+
+        written = 0
+        for path in self._to_move:
+            write_rejected(path)
+            written += 1
+
+        self.app.exit(
+            message=(
+                f"{written} XMP sidecar(s) written.\n"
+                "In Lightroom: Metadata → Read Metadata from Files, "
+                "then Photo → Delete Rejected Photos."
+            )
+        )
+
     def action_cancel(self) -> None:
-        self.app.exit(message="Cancelled. No files were moved.")
+        self.app.exit(message="Cancelled. No files were changed.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -391,6 +502,35 @@ Screen {
 #confirm-summary {
     margin: 1 2;
 }
+
+#history-title {
+    margin: 1 2;
+}
+
+#history-list {
+    margin: 0 1;
+}
+
+#no-history {
+    margin: 2;
+    color: $text-muted;
+}
+
+NewFolderModal {
+    align: center middle;
+}
+
+#modal-body {
+    background: $surface;
+    border: solid $primary;
+    padding: 2 4;
+    width: 60;
+    height: auto;
+}
+
+#modal-body Label {
+    margin-bottom: 1;
+}
 """
 
 
@@ -398,13 +538,21 @@ class PhotoDedupApp(App):
     TITLE = "ella — photo assistant"
     CSS = CSS
 
-    def __init__(self, directory: Path, threshold: int, recursive: bool) -> None:
+    def __init__(
+        self,
+        directory: Optional[Path],
+        threshold: int,
+        recursive: bool,
+    ) -> None:
         super().__init__()
         self._directory = directory
         self._threshold = threshold
         self._recursive = recursive
 
     def on_mount(self) -> None:
-        self.push_screen(
-            ScanScreen(self._directory, self._threshold, self._recursive)
-        )
+        if self._directory:
+            self.push_screen(
+                ScanScreen(self._directory, self._threshold, self._recursive)
+            )
+        else:
+            self.push_screen(HistoryScreen())
