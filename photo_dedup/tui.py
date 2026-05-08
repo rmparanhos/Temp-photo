@@ -11,7 +11,7 @@ from textual.containers import Center, ScrollableContainer, Vertical
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Label, ProgressBar, Rule, Static
 
-from .scanner import PhotoInfo, compute_hashes, group_similar, load_photos
+from .scanner import HASH_MAX_BITS, PhotoInfo, compute_hashes, group_similar, load_photos
 from .scorer import LABELS, WEIGHTS, score_group
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -26,11 +26,13 @@ def _bar(value: float) -> str:
     return "█" * filled + "░" * (BAR_WIDTH - filled)
 
 
-def _render_card(info: PhotoInfo, label: str, color: str) -> str:
+def _render_card(info: PhotoInfo, label: str, color: str, similarity: float) -> str:
     size_kb = info.path.stat().st_size // 1024
     lines = [
         f"[bold {color}]{label}[/]  [bold]{info.path.name}[/]"
-        f"  [dim]{size_kb} KB[/]  score [bold cyan]{info.score:.1f}[/]",
+        f"  [dim]{size_kb} KB[/]"
+        f"  score [bold cyan]{info.score:.1f}[/]"
+        f"  similarity [bold magenta]{similarity:.0f}%[/]",
         "",
     ]
     for key, display in LABELS.items():
@@ -155,19 +157,23 @@ class GroupScreen(Screen):
         self._refresh_cards()
 
     def _refresh_cards(self) -> None:
+        keeper = self._group[self._keeper_idx]
         for i, info in enumerate(self._group):
             card = self.query_one(f"#card-{i}", Static)
             if i == self._keeper_idx:
                 label = "★ KEEP"
                 color = "green"
+                similarity = 100.0
                 card.remove_class("card-delete")
                 card.add_class("card-keep")
             else:
                 label = "✗ MOVE"
                 color = "red"
+                distance = keeper.phash - info.phash
+                similarity = (1 - distance / HASH_MAX_BITS) * 100
                 card.remove_class("card-keep")
                 card.add_class("card-delete")
-            card.update(_render_card(info, label, color))
+            card.update(_render_card(info, label, color, similarity))
 
     def action_prev_keeper(self) -> None:
         self._keeper_idx = max(0, self._keeper_idx - 1)

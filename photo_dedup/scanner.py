@@ -10,6 +10,9 @@ from PIL import Image
 
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".webp", ".bmp", ".heic"}
 
+HASH_SIZE = 16
+HASH_MAX_BITS = HASH_SIZE * HASH_SIZE  # max possible Hamming distance between two hashes
+
 
 @dataclass
 class PhotoInfo:
@@ -36,7 +39,7 @@ def compute_hashes(
     for i, info in enumerate(photos):
         try:
             with Image.open(info.path) as img:
-                info.phash = imagehash.phash(img.convert("RGB"), hash_size=16)
+                info.phash = imagehash.phash(img.convert("RGB"), hash_size=HASH_SIZE)
         except Exception as e:
             info.error = str(e)
         if progress:
