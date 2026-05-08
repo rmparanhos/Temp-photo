@@ -194,6 +194,25 @@ The photo with the highest score is suggested as the one to keep. The user can o
 
 ---
 
-## Roadmap (v2)
+## TODO
 
-- **Super photo via weighted averaging:** average the pixels of N similar photos, weighted by each photo's sharpness score. Noise, being random, cancels out — the result is cleaner than any individual frame.
+### Done
+- [x] Perceptual hash (pHash) for similarity grouping
+- [x] Quality scoring: sharpness (Laplacian), exposure, resolution, noise, EXIF
+- [x] TUI with group-by-group review and score breakdown
+- [x] Similarity percentage per photo relative to keeper
+- [x] Move duplicates to `_duplicates/` folder
+- [x] XMP sidecar output for Lightroom Classic integration
+- [x] Folder history (`ella` without args opens recent folders)
+- [x] `pipx install .` packaging with `ella` command
+
+### Next
+- [ ] **Super photo:** merge N similar photos by weighted pixel averaging (weight = sharpness score) to reduce noise — the random noise cancels out across frames
+- [ ] **Lightroom cloud API:** detect and mark duplicates without downloading originals, via Adobe's REST API
+- [ ] **Focus stacking:** for bracketed shots with different focus points, merge the sharpest region of each frame into a single all-in-focus image
+
+### Ideas
+- [ ] Thumbnail preview in the TUI (Sixel/Kitty terminal graphics protocol)
+- [ ] `--dry-run` mode: show what would happen without writing anything
+- [ ] Export report as CSV or JSON for external processing
+- [ ] Watch mode: monitor a folder and flag new duplicates automatically
