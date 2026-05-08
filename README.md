@@ -216,3 +216,4 @@ The photo with the highest score is suggested as the one to keep. The user can o
 - [ ] `--dry-run` mode: show what would happen without writing anything
 - [ ] Export report as CSV or JSON for external processing
 - [ ] Watch mode: monitor a folder and flag new duplicates automatically
+- [ ] Publish to PyPI (`pip install ella`) once the project is stable
