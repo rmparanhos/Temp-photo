@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from .tui import PhotoDedupApp
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="ella",
+        description="ella — photo assistant. Finds similar photos and keeps the highest-quality one.",
+    )
+    parser.add_argument("directory", type=Path, help="Folder to scan")
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        default=10,
+        help="Max pHash distance to consider photos similar (default: 10, range: 0–64)",
+    )
+    parser.add_argument(
+        "--recursive", "-r",
+        action="store_true",
+        help="Scan sub-folders recursively",
+    )
+    args = parser.parse_args()
+
+    if not args.directory.is_dir():
+        print(f"Error: '{args.directory}' is not a folder.")
+        raise SystemExit(1)
+
+    app = PhotoDedupApp(args.directory, args.threshold, args.recursive)
+    result = app.run()
+    if result:
+        print(result)

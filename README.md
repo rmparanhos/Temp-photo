@@ -4,11 +4,20 @@ TUI for finding similar photos, scoring their quality, and moving duplicates to 
 
 ---
 
+## Installation
+
+```bash
+pipx install .
+```
+
+That's it. `ella` is now available as a command anywhere in your terminal.
+
+> Requires [pipx](https://pipx.pypa.io). Install it with `brew install pipx` or `pip install pipx`.
+
 ## Usage
 
 ```bash
-pip install -r requirements.txt
-python main.py ./your-photos
+ella ./your-photos
 ```
 
 Optional flags:
