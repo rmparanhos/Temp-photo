@@ -14,10 +14,10 @@ WEIGHTS: dict[str, float] = {
 }
 
 LABELS: dict[str, str] = {
-    "sharpness": "nitidez",
-    "exposure": "exposição",
-    "resolution": "resolução",
-    "noise": "ruído",
+    "sharpness": "sharpness",
+    "exposure": "exposure",
+    "resolution": "resolution",
+    "noise": "noise",
     "exif": "exif",
 }
 

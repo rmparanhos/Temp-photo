@@ -7,7 +7,7 @@ from photo_dedup.tui import PhotoDedupApp
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="ella — assistente fotográfica. Encontra fotos similares e mantém a de maior qualidade."
+        description="ella — photo assistant. Finds similar photos and keeps the highest-quality one."
     )
     parser.add_argument("directory", type=Path, help="Pasta a escanear")
     parser.add_argument(

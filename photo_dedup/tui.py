@@ -55,7 +55,7 @@ class ScanScreen(Screen):
         yield Header()
         with Center():
             with Vertical(id="scan-body"):
-                yield Label("Escaneando fotos...", id="scan-label")
+                yield Label("Scanning photos...", id="scan-label")
                 yield ProgressBar(total=100, show_eta=False, id="scan-bar")
                 yield Label("", id="scan-count")
         yield Footer()
@@ -73,7 +73,7 @@ class ScanScreen(Screen):
         )
         self.call_from_thread(
             self.query_one("#scan-label", Label).update,
-            f"Calculando hashes de {self._total} fotos...",
+            f"Computing hashes for {self._total} photos...",
         )
 
         def on_progress(i: int) -> None:
@@ -89,7 +89,7 @@ class ScanScreen(Screen):
 
         self.call_from_thread(
             self.query_one("#scan-label", Label).update,
-            "Agrupando e pontuando fotos similares...",
+            "Grouping and scoring similar photos...",
         )
         groups = group_similar(photos, self._threshold)
         for group in groups:
@@ -113,11 +113,11 @@ class ScanScreen(Screen):
 
 class GroupScreen(Screen):
     BINDINGS = [
-        Binding("up,k", "prev_keeper", "Foto anterior"),
-        Binding("down,j", "next_keeper", "Próxima foto"),
-        Binding("enter", "confirm", "Confirmar"),
-        Binding("s", "skip", "Pular grupo"),
-        Binding("q", "quit_app", "Sair"),
+        Binding("up,k", "prev_keeper", "Previous photo"),
+        Binding("down,j", "next_keeper", "Next photo"),
+        Binding("enter", "confirm", "Confirm"),
+        Binding("s", "skip", "Skip group"),
+        Binding("q", "quit_app", "Quit"),
     ]
 
     def __init__(
@@ -136,18 +136,18 @@ class GroupScreen(Screen):
         yield Header()
         with ScrollableContainer():
             yield Static(
-                f"[bold]{len(self._group)} fotos similares[/]"
-                f"  [dim]Grupo {self._group_num} de {self._total}[/]\n",
+                f"[bold]{len(self._group)} similar photos[/]"
+                f"  [dim]Group {self._group_num} of {self._total}[/]\n",
                 id="group-header",
             )
             for i in range(len(self._group)):
                 yield Static(id=f"card-{i}", classes="photo-card")
             yield Rule()
             yield Static(
-                "[dim]↑↓  mudar qual manter   "
-                "Enter  confirmar   "
-                "S  pular grupo   "
-                "Q  sair[/]"
+                "[dim]↑↓  change keeper   "
+                "Enter  confirm   "
+                "S  skip group   "
+                "Q  quit[/]"
             )
         yield Footer()
 
@@ -158,12 +158,12 @@ class GroupScreen(Screen):
         for i, info in enumerate(self._group):
             card = self.query_one(f"#card-{i}", Static)
             if i == self._keeper_idx:
-                label = "★ MANTER"
+                label = "★ KEEP"
                 color = "green"
                 card.remove_class("card-delete")
                 card.add_class("card-keep")
             else:
-                label = "✗ MOVER"
+                label = "✗ MOVE"
                 color = "red"
                 card.remove_class("card-keep")
                 card.add_class("card-delete")
@@ -237,8 +237,8 @@ class ReviewOrchestrator(Screen):
 
 class ConfirmScreen(Screen):
     BINDINGS = [
-        Binding("enter,m", "move_files", "Mover arquivos"),
-        Binding("escape,q", "cancel", "Cancelar"),
+        Binding("enter,m", "move_files", "Move files"),
+        Binding("escape,q", "cancel", "Cancel"),
     ]
 
     def __init__(
@@ -266,26 +266,26 @@ class ConfirmScreen(Screen):
         with ScrollableContainer():
             skipped = len(self._groups) - len(self._decisions)
             yield Static(
-                f"[bold]{len(self._to_move)} fotos[/] serão movidas para "
+                f"[bold]{len(self._to_move)} photo(s)[/] will be moved to "
                 f"[bold cyan]_duplicates/[/]\n"
-                f"[dim]{skipped} grupo(s) pulado(s)[/]\n",
+                f"[dim]{skipped} group(s) skipped[/]\n",
                 id="confirm-summary",
             )
             if self._errors:
                 yield Static(
-                    f"[yellow]{len(self._errors)} arquivo(s) com erro (pulados)[/]\n"
+                    f"[yellow]{len(self._errors)} file(s) with errors (skipped)[/]\n"
                 )
             for path in self._to_move:
                 yield Static(f"  [dim]• {path.name}[/]")
             yield Rule()
             yield Static(
-                "[dim]Enter / M  mover arquivos   Esc / Q  cancelar[/]"
+                "[dim]Enter / M  move files   Esc / Q  cancel[/]"
             )
         yield Footer()
 
     def action_move_files(self) -> None:
         if not self._to_move:
-            self.app.exit(message="Nada a mover.")
+            self.app.exit(message="Nothing to move.")
             return
 
         base_dir = self._to_move[0].parent
@@ -305,10 +305,10 @@ class ConfirmScreen(Screen):
             shutil.move(str(path), str(target))
             moved += 1
 
-        self.app.exit(message=f"{moved} foto(s) movida(s) para {dest}")
+        self.app.exit(message=f"{moved} photo(s) moved to {dest}")
 
     def action_cancel(self) -> None:
-        self.app.exit(message="Cancelado. Nenhum arquivo foi movido.")
+        self.app.exit(message="Cancelled. No files were moved.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -316,7 +316,7 @@ class ConfirmScreen(Screen):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class NoGroupsScreen(Screen):
-    BINDINGS = [Binding("q,enter,escape", "quit_app", "Sair")]
+    BINDINGS = [Binding("q,enter,escape", "quit_app", "Quit")]
 
     def __init__(self, errors: list[PhotoInfo]) -> None:
         super().__init__()
@@ -326,13 +326,13 @@ class NoGroupsScreen(Screen):
         yield Header()
         with Center():
             yield Static(
-                "[bold green]Nenhuma foto similar encontrada.[/]\n"
-                "Tudo certo por aqui!"
+                "[bold green]No similar photos found.[/]\n"
+                "Everything looks clean!"
             )
         yield Footer()
 
     def action_quit_app(self) -> None:
-        self.app.exit(message="Nenhuma foto similar encontrada.")
+        self.app.exit(message="No similar photos found.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -389,7 +389,7 @@ Screen {
 
 
 class PhotoDedupApp(App):
-    TITLE = "ella — assistente fotográfica"
+    TITLE = "ella — photo assistant"
     CSS = CSS
 
     def __init__(self, directory: Path, threshold: int, recursive: bool) -> None:
