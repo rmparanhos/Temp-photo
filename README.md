@@ -216,6 +216,7 @@ The photo with the highest score is suggested as the one to keep. The user can o
 - [ ] **Focus stacking:** for bracketed shots with different focus points, merge the sharpest region of each frame into a single all-in-focus image
 
 ### Ideas
+- [ ] **Video support (`--videos`):** detect similar videos by sampling frames and comparing pHash sequences; score by resolution, bitrate, codec, duration and per-frame sharpness; requires `ffmpeg` and a hash cache to avoid reprocessing large files
 - [ ] Thumbnail preview in the TUI (Sixel/Kitty terminal graphics protocol)
 - [ ] Export report as CSV or JSON for external processing
 - [ ] Watch mode: monitor a folder and flag new duplicates automatically
