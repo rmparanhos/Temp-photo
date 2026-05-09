@@ -208,6 +208,8 @@ The photo with the highest score is suggested as the one to keep. The user can o
 
 ### Next
 - [ ] **Super photo:** merge N similar photos by weighted pixel averaging (weight = sharpness score) to reduce noise — the random noise cancels out across frames
+- [ ] **ASCII thumbnail preview:** render each photo as colored ASCII art (`▀▄█▒░`) inside the TUI, sized proportionally using the character aspect ratio — works in any terminal, no protocol dependency
+- [ ] **Open photo in system viewer:** press `O` on any photo in the group review to open it in the OS default viewer (Preview on macOS, xdg-open on Linux) — TUI stays open
 - [ ] **Lightroom cloud API:** detect and mark duplicates without downloading originals, via Adobe's REST API
 - [ ] **Focus stacking:** for bracketed shots with different focus points, merge the sharpest region of each frame into a single all-in-focus image
 
