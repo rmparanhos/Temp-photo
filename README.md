@@ -27,6 +27,7 @@ Optional flags:
 |---|---|---|
 | `--threshold N` | 10 | Similarity sensitivity (0 = identical only, 64 = anything) |
 | `--recursive` / `-r` | off | Scan sub-folders recursively |
+| `--dry-run` / `-n` | off | Show what would happen without moving or writing any files |
 
 ### TUI navigation
 
@@ -205,6 +206,7 @@ The photo with the highest score is suggested as the one to keep. The user can o
 - [x] XMP sidecar output for Lightroom Classic integration
 - [x] Folder history (`ella` without args opens recent folders)
 - [x] `pipx install .` packaging with `ella` command
+- [x] `--dry-run` mode: shows what would happen without writing any files
 
 ### Next
 - [ ] **Super photo:** merge N similar photos by weighted pixel averaging (weight = sharpness score) to reduce noise — the random noise cancels out across frames
@@ -215,7 +217,6 @@ The photo with the highest score is suggested as the one to keep. The user can o
 
 ### Ideas
 - [ ] Thumbnail preview in the TUI (Sixel/Kitty terminal graphics protocol)
-- [ ] `--dry-run` mode: show what would happen without writing anything
 - [ ] Export report as CSV or JSON for external processing
 - [ ] Watch mode: monitor a folder and flag new duplicates automatically
 - [ ] Publish to PyPI (`pip install ella`) once the project is stable

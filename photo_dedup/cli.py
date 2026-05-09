@@ -29,13 +29,18 @@ def main() -> None:
         action="store_true",
         help="Scan sub-folders recursively",
     )
+    parser.add_argument(
+        "--dry-run", "-n",
+        action="store_true",
+        help="Show what would happen without moving or writing any files",
+    )
     args = parser.parse_args()
 
     if args.directory and not args.directory.is_dir():
         print(f"Error: '{args.directory}' is not a folder.")
         raise SystemExit(1)
 
-    app = PhotoDedupApp(args.directory, args.threshold, args.recursive)
+    app = PhotoDedupApp(args.directory, args.threshold, args.recursive, args.dry_run)
     result = app.run()
     if result:
         print(result)

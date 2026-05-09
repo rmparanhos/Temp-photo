@@ -363,9 +363,11 @@ class ConfirmScreen(Screen):
         yield Header()
         with ScrollableContainer():
             skipped = len(self._groups) - len(self._decisions)
+            dry = self.app._dry_run
             yield Static(
                 f"[bold]{len(self._to_move)} duplicate(s)[/] ready to process"
                 + (f"  [dim]({skipped} group(s) skipped)[/]" if skipped else "")
+                + (f"  [bold yellow](dry run — no files will be changed)[/]" if dry else "")
                 + "\n",
                 id="confirm-summary",
             )
@@ -386,6 +388,13 @@ class ConfirmScreen(Screen):
     def action_move_files(self) -> None:
         if not self._to_move:
             self.app.exit(message="Nothing to move.")
+            return
+
+        if self.app._dry_run:
+            dest = self._to_move[0].parent / "_duplicates"
+            self.app.exit(
+                message=f"Dry run: {len(self._to_move)} photo(s) would be moved to {dest}"
+            )
             return
 
         base_dir = self._to_move[0].parent
@@ -409,6 +418,12 @@ class ConfirmScreen(Screen):
     def action_write_xmp(self) -> None:
         if not self._to_move:
             self.app.exit(message="Nothing to process.")
+            return
+
+        if self.app._dry_run:
+            self.app.exit(
+                message=f"Dry run: {len(self._to_move)} XMP sidecar(s) would be written."
+            )
             return
 
         written = 0
@@ -543,11 +558,13 @@ class PhotoDedupApp(App):
         directory: Optional[Path],
         threshold: int,
         recursive: bool,
+        dry_run: bool = False,
     ) -> None:
         super().__init__()
         self._directory = directory
         self._threshold = threshold
         self._recursive = recursive
+        self._dry_run = dry_run
 
     def on_mount(self) -> None:
         if self._directory:
