@@ -7,7 +7,7 @@ name = "ella"
 version = "0.1.0"
 description = "Photo assistant — finds similar photos and keeps the best quality one"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.8"
 dependencies = [
     "Pillow>=10.0",
     "imagehash>=4.3",
