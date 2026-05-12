@@ -167,24 +167,24 @@ class ScanScreen(Screen):
         photos = load_photos(self._directory, self._recursive)
         self._total = len(photos)
 
-        self.call_from_thread(
+        self.app.call_from_thread(
             self.query_one("#scan-bar", ProgressBar).update, total=max(self._total, 1)
         )
-        self.call_from_thread(
+        self.app.call_from_thread(
             self.query_one("#scan-label", Label).update,
             f"Computing hashes for {self._total} photos...",
         )
 
         def on_progress(i: int) -> None:
-            self.call_from_thread(self.query_one("#scan-bar", ProgressBar).advance, 1)
-            self.call_from_thread(
+            self.app.call_from_thread(self.query_one("#scan-bar", ProgressBar).advance, 1)
+            self.app.call_from_thread(
                 self.query_one("#scan-count", Label).update,
                 f"{i} / {self._total}",
             )
 
         compute_hashes(photos, on_progress)
 
-        self.call_from_thread(
+        self.app.call_from_thread(
             self.query_one("#scan-label", Label).update,
             "Grouping and scoring similar photos...",
         )
@@ -193,7 +193,7 @@ class ScanScreen(Screen):
             score_group(group)
 
         errors = [p for p in photos if p.error]
-        self.call_from_thread(self._scan_done, groups, errors)
+        self.app.call_from_thread(self._scan_done, groups, errors)
 
     def _scan_done(
         self, groups: list[list[PhotoInfo]], errors: list[PhotoInfo]

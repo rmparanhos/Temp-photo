@@ -19,7 +19,7 @@ That's it. `ella` is now available as a command anywhere in your terminal.
 ```bash
 ella                  # pick a folder from history
 ella ./your-photos    # scan a specific folder directly
-```
+````
 
 Optional flags:
 
