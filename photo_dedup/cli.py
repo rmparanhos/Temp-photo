@@ -19,7 +19,7 @@ def main() -> None:
         help="Folder to scan (omit to pick from history)",
     )
     parser.add_argument(
-        "--threshold",
+        "--threshold", "-t",
         type=int,
         default=10,
         help="Max pHash distance to consider photos similar (default: 10, range: 0–64)",

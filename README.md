@@ -25,7 +25,7 @@ Optional flags:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--threshold N` | 10 | Similarity sensitivity (0 = identical only, 64 = anything) |
+| `--threshold N` / `-t` | 10 | Similarity sensitivity (0 = identical only, 64 = anything) |
 | `--recursive` / `-r` | off | Scan sub-folders recursively |
 | `--dry-run` / `-n` | off | Show what would happen without moving or writing any files |
 
