@@ -168,7 +168,8 @@ class ScanScreen(Screen):
         self._total = len(photos)
 
         self.app.call_from_thread(
-            self.query_one("#scan-bar", ProgressBar).update, total=max(self._total, 1)
+            self.query_one("#scan-bar", ProgressBar).update,
+            total=max(self._total, 1),
         )
         self.app.call_from_thread(
             self.query_one("#scan-label", Label).update,
@@ -176,7 +177,9 @@ class ScanScreen(Screen):
         )
 
         def on_progress(i: int) -> None:
-            self.app.call_from_thread(self.query_one("#scan-bar", ProgressBar).advance, 1)
+            self.app.call_from_thread(
+                self.query_one("#scan-bar", ProgressBar).advance, 1
+            )
             self.app.call_from_thread(
                 self.query_one("#scan-count", Label).update,
                 f"{i} / {self._total}",
@@ -184,13 +187,29 @@ class ScanScreen(Screen):
 
         compute_hashes(photos, on_progress)
 
-        self.app.call_from_thread(
-            self.query_one("#scan-label", Label).update,
-            "Grouping and scoring similar photos...",
-        )
+        # Phase 2: group and score — reuse the progress bar
         groups = group_similar(photos, self._threshold)
-        for group in groups:
+        n_groups = len(groups)
+
+        self.app.call_from_thread(
+            self.query_one("#scan-bar", ProgressBar).update,
+            total=max(n_groups, 1),
+            progress=0,
+        )
+
+        for i, group in enumerate(groups):
+            self.app.call_from_thread(
+                self.query_one("#scan-label", Label).update,
+                f"Scoring group {i + 1} of {n_groups}...",
+            )
+            self.app.call_from_thread(
+                self.query_one("#scan-count", Label).update,
+                f"{sum(len(g) for g in groups[:i])} photos processed",
+            )
             score_group(group)
+            self.app.call_from_thread(
+                self.query_one("#scan-bar", ProgressBar).advance, 1
+            )
 
         errors = [p for p in photos if p.error]
         self.app.call_from_thread(self._scan_done, groups, errors)
@@ -210,8 +229,9 @@ class ScanScreen(Screen):
 
 class GroupScreen(Screen):
     BINDINGS = [
-        Binding("up,k", "prev_keeper", "Previous photo"),
-        Binding("down,j", "next_keeper", "Next photo"),
+        # priority=True ensures these fire even when ScrollableContainer is focused
+        Binding("up,k", "prev_keeper", "Previous photo", priority=True),
+        Binding("down,j", "next_keeper", "Next photo", priority=True),
         Binding("enter", "confirm", "Confirm"),
         Binding("s", "skip", "Skip group"),
         Binding("q", "quit_app", "Quit"),
@@ -231,6 +251,7 @@ class GroupScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Static("", id="keeper-indicator")
         with ScrollableContainer():
             yield Static(
                 f"[bold]{len(self._group)} similar photos[/]"
@@ -253,6 +274,13 @@ class GroupScreen(Screen):
 
     def _refresh_cards(self) -> None:
         keeper = self._group[self._keeper_idx]
+
+        # Update the prominent keeper indicator at the top
+        self.query_one("#keeper-indicator", Static).update(
+            f" [bold green]★ Keeping:[/]  [bold]{keeper.path.name}[/]"
+            f"  [dim](photo {self._keeper_idx + 1} of {len(self._group)})[/]"
+        )
+
         for i, info in enumerate(self._group):
             card = self.query_one(f"#card-{i}", Static)
             if i == self._keeper_idx:
@@ -387,13 +415,14 @@ class ConfirmScreen(Screen):
 
     def action_move_files(self) -> None:
         if not self._to_move:
-            self.app.exit(message="Nothing to move.")
+            self.app.switch_screen(
+                ReportScreen(self._groups, self._decisions, "moved", None)
+            )
             return
 
         if self.app._dry_run:
-            dest = self._to_move[0].parent / "_duplicates"
-            self.app.exit(
-                message=f"Dry run: {len(self._to_move)} photo(s) would be moved to {dest}"
+            self.app.switch_screen(
+                ReportScreen(self._groups, self._decisions, "dry_run", None)
             )
             return
 
@@ -401,7 +430,6 @@ class ConfirmScreen(Screen):
         dest = base_dir / "_duplicates"
         dest.mkdir(exist_ok=True)
 
-        moved = 0
         for path in self._to_move:
             target = dest / path.name
             if target.exists():
@@ -411,36 +439,112 @@ class ConfirmScreen(Screen):
                     target = dest / f"{stem}_{counter}{suffix}"
                     counter += 1
             shutil.move(str(path), str(target))
-            moved += 1
 
-        self.app.exit(message=f"{moved} photo(s) moved to {dest}")
+        self.app.switch_screen(
+            ReportScreen(self._groups, self._decisions, "moved", dest)
+        )
 
     def action_write_xmp(self) -> None:
-        if not self._to_move:
-            self.app.exit(message="Nothing to process.")
-            return
-
         if self.app._dry_run:
-            self.app.exit(
-                message=f"Dry run: {len(self._to_move)} XMP sidecar(s) would be written."
+            self.app.switch_screen(
+                ReportScreen(self._groups, self._decisions, "dry_run", None)
             )
             return
 
-        written = 0
         for path in self._to_move:
             write_rejected(path)
-            written += 1
 
-        self.app.exit(
-            message=(
-                f"{written} XMP sidecar(s) written.\n"
-                "In Lightroom: Metadata → Read Metadata from Files, "
-                "then Photo → Delete Rejected Photos."
-            )
+        self.app.switch_screen(
+            ReportScreen(self._groups, self._decisions, "xmp", None)
         )
 
     def action_cancel(self) -> None:
         self.app.exit(message="Cancelled. No files were changed.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Report screen
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ReportScreen(Screen):
+    BINDINGS = [Binding("q,enter,escape", "quit_app", "Quit")]
+
+    def __init__(
+        self,
+        groups: list[list[PhotoInfo]],
+        decisions: dict[int, int],
+        action: str,          # "moved", "xmp", "dry_run"
+        dest: Optional[Path],
+    ) -> None:
+        super().__init__()
+        self._groups = groups
+        self._decisions = decisions
+        self._action = action
+        self._dest = dest
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with ScrollableContainer():
+            yield Static(self._build_summary(), id="report-summary")
+            yield Rule()
+            for i, group in enumerate(self._groups):
+                yield Static(self._build_group_line(i, group), classes="report-group")
+            yield Rule()
+            if self._action == "xmp":
+                yield Static(
+                    "[dim]In Lightroom: Metadata → Read Metadata from Files,"
+                    " then Photo → Delete Rejected Photos.[/]\n"
+                )
+            yield Static("[dim]Press Q to quit[/]")
+        yield Footer()
+
+    def _build_summary(self) -> str:
+        confirmed = len(self._decisions)
+        skipped = len(self._groups) - confirmed
+        total_moved = sum(
+            len(self._groups[idx]) - 1
+            for idx in self._decisions
+        )
+
+        if self._action == "dry_run":
+            verb = f"would be processed (dry run)"
+        elif self._action == "xmp":
+            verb = "marked as rejected (XMP written)"
+        else:
+            verb = f"moved to {self._dest}"
+
+        parts = [f"[bold]{total_moved} duplicate(s)[/] {verb}"]
+        if skipped:
+            parts.append(f"[dim]{skipped} group(s) skipped[/]")
+
+        return "  " + "  ·  ".join(parts) + "\n"
+
+    def _build_group_line(self, idx: int, group: list[PhotoInfo]) -> str:
+        if idx not in self._decisions:
+            return f"  Group {idx + 1:>2}  [dim]— skipped[/]"
+
+        keeper_idx = self._decisions[idx]
+        keeper = group[keeper_idx]
+
+        if self._action == "dry_run":
+            move_label = "would move"
+        elif self._action == "xmp":
+            move_label = "→ rejected"
+        else:
+            move_label = "→ moved   "
+
+        lines = [
+            f"  Group {idx + 1:>2}  [bold green]✓ kept    {keeper.path.name}[/]"
+        ]
+        for i, info in enumerate(group):
+            if i != keeper_idx:
+                lines.append(
+                    f"           [dim]{move_label}  {info.path.name}[/]"
+                )
+        return "\n".join(lines)
+
+    def action_quit_app(self) -> None:
+        self.app.exit()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -494,6 +598,13 @@ Screen {
     margin-top: 1;
 }
 
+#keeper-indicator {
+    background: $success 12%;
+    border-bottom: solid $success;
+    padding: 0 2;
+    height: 1;
+}
+
 .photo-card {
     border: solid $panel-lighten-2;
     margin: 0 1 1 1;
@@ -516,6 +627,14 @@ Screen {
 
 #confirm-summary {
     margin: 1 2;
+}
+
+#report-summary {
+    margin: 1 2;
+}
+
+.report-group {
+    margin: 0 2 1 2;
 }
 
 #history-title {
