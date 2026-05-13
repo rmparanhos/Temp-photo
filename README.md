@@ -1,6 +1,6 @@
 # ella — photo assistant
 
-TUI for finding similar photos, scoring their quality, and moving duplicates to a separate folder.
+TUI for finding duplicate photos and culling low-quality shots. Scores each photo by sharpness, exposure, resolution, noise and EXIF metadata.
 
 ---
 
@@ -19,17 +19,28 @@ That's it. `ella` is now available as a command anywhere in your terminal.
 ```bash
 ella                  # pick a folder from history
 ella ./your-photos    # scan a specific folder directly
-````
+```
 
 Optional flags:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--threshold N` / `-t` | 10 | Similarity sensitivity (0 = identical only, 64 = anything) |
+| `--threshold N` / `-t` | 10 | Similarity sensitivity for duplicates (0 = identical only, 256 = anything) |
+| `--cull-threshold N` / `-c` | 40 | Quality score below which a photo is flagged for culling (0–100) |
 | `--recursive` / `-r` | off | Scan sub-folders recursively |
 | `--dry-run` / `-n` | off | Show what would happen without moving or writing any files |
 
-### TUI navigation
+### Modes
+
+After selecting a folder, ella asks what to do:
+
+**D — Find & remove duplicates**  
+Groups photos by perceptual hash. For each group you pick which photo to keep; the rest are moved to `_duplicates/` or marked as rejected via XMP.
+
+**C — Cull low-quality photos**  
+Scores every photo individually. Photos below the cull threshold are listed for review. You decide which ones to process.
+
+### TUI navigation — duplicate mode
 
 | Key | Action |
 |---|---|
@@ -38,16 +49,27 @@ Optional flags:
 | `S` | Skip group (no files touched) |
 | `Q` | Quit |
 
-At the confirmation screen, choose how to handle duplicates:
+### TUI navigation — cull mode
 
 | Key | Action |
 |---|---|
-| `M` | Move duplicates to `_duplicates/` inside the scanned folder |
+| `↑` / `↓` | Move cursor through flagged photos |
+| `Space` | Toggle flag (include/exclude from action) |
+| `A` | Flag all photos |
+| `N` | Unflag all photos |
+| `Enter` | Proceed to confirm |
+| `Q` | Quit |
+
+At the confirmation screen (both modes), choose how to handle the selected files:
+
+| Key | Action |
+|---|---|
+| `M` | Move files to `_duplicates/` or `_culled/` inside the scanned folder |
 | `X` | Write XMP sidecars (Lightroom Classic workflow — see below) |
 
 ### History
 
-Running `ella` without arguments opens a history screen with your recently scanned folders. Select one and press `Enter` to re-run. Press `N` to enter a new folder path.
+Running `ella` without arguments opens a history screen with your recently scanned folders. Select one and press `Enter` to continue to mode selection. Press `N` to enter a new folder path.
 
 ---
 
@@ -93,15 +115,24 @@ Done. No export, no import, no duplicates in the catalog.
 ## Project structure
 
 ```
-photo_dedup/
+ella/
 ├── scanner.py   — loads photos, computes pHash, groups similar ones
 ├── scorer.py    — quality heuristics (scores each photo 0–100)
-├── cache.py     — pHash disk cache (~/.ella/hash_cache.json)
+├── culler.py    — scores all photos; returns those below cull threshold
+├── cache.py     — disk cache for hashes + score parts (~/.ella/hash_cache.json)
 ├── history.py   — folder history (~/.ella/history.json)
 ├── xmp.py       — writes Lightroom XMP sidecar files
-└── tui.py       — Textual TUI
-main.py          — entry point (CLI arguments)
-requirements.txt
+└── tui/
+    ├── app.py       — PhotoDedupApp + CSS
+    ├── common.py    — shared rendering helpers
+    ├── history.py   — HistoryScreen, NewFolderModal
+    ├── mode.py      — ModeScreen (duplicates vs cull)
+    ├── scan.py      — ScanScreen, CullScanScreen
+    ├── dupes.py     — GroupScreen, ReviewOrchestrator
+    ├── cull.py      — CullReviewScreen
+    ├── confirm.py   — ConfirmScreen, CullConfirmScreen
+    └── report.py    — ReportScreen, CullReportScreen, NoGroupsScreen, NoCullScreen
+main.py          — thin entry point
 ```
 
 ---
@@ -211,13 +242,17 @@ The photo with the highest score is suggested as the one to keep. The user can o
 - [x] `pipx install .` packaging with `ella` command
 - [x] `--dry-run` mode: shows what would happen without writing any files
 - [x] pHash disk cache — hashes computed once, reused on subsequent runs
+- [x] Score disk cache — quality metrics cached per file, reused on repeat runs
+- [x] **Cull mode** — scores all photos, flags those below `--cull-threshold`; interactive list review with toggle per photo; moves to `_culled/` or writes XMP
+- [x] Mode selection screen — choose between duplicates or cull after picking a folder
 
 ### Next
-- [ ] **Super photo:** merge N similar photos by weighted pixel averaging (weight = sharpness score) to reduce noise — the random noise cancels out across frames
+- [ ] **Per-metric cull thresholds:** flag photos that fail a specific criterion regardless of total score (e.g. `sharpness < 20` = blurry, `exposure < 15` = too dark/bright) — configurable via CLI flags
 - [ ] **ASCII thumbnail preview:** render each photo as colored ASCII art (`▀▄█▒░`) inside the TUI, sized proportionally using the character aspect ratio — works in any terminal, no protocol dependency
 - [ ] **Open photo in system viewer:** press `O` on any photo in the group review to open it in the OS default viewer (Preview on macOS, xdg-open on Linux) — TUI stays open
-- [ ] **Lightroom cloud API:** detect and mark duplicates without downloading originals, via Adobe's REST API
+- [ ] **Super photo:** merge N similar photos by weighted pixel averaging (weight = sharpness score) to reduce noise — the random noise cancels out across frames
 - [ ] **Focus stacking:** for bracketed shots with different focus points, merge the sharpest region of each frame into a single all-in-focus image
+- [ ] **Lightroom cloud API:** detect and mark duplicates without downloading originals, via Adobe's REST API
 
 ### Ideas
 - [ ] **Video support (`--videos`):** detect similar videos by sampling frames and comparing pHash sequences; score by resolution, bitrate, codec, duration and per-frame sharpness; requires `ffmpeg` and a hash cache to avoid reprocessing large files

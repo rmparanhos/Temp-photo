@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ella = "photo_dedup.cli:main"
+ella = "ella.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["photo_dedup"]
+packages = ["ella"]
