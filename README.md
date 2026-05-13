@@ -96,6 +96,9 @@ Done. No export, no import, no duplicates in the catalog.
 photo_dedup/
 ├── scanner.py   — loads photos, computes pHash, groups similar ones
 ├── scorer.py    — quality heuristics (scores each photo 0–100)
+├── cache.py     — pHash disk cache (~/.ella/hash_cache.json)
+├── history.py   — folder history (~/.ella/history.json)
+├── xmp.py       — writes Lightroom XMP sidecar files
 └── tui.py       — Textual TUI
 main.py          — entry point (CLI arguments)
 requirements.txt
@@ -207,6 +210,7 @@ The photo with the highest score is suggested as the one to keep. The user can o
 - [x] Folder history (`ella` without args opens recent folders)
 - [x] `pipx install .` packaging with `ella` command
 - [x] `--dry-run` mode: shows what would happen without writing any files
+- [x] pHash disk cache — hashes computed once, reused on subsequent runs
 
 ### Next
 - [ ] **Super photo:** merge N similar photos by weighted pixel averaging (weight = sharpness score) to reduce noise — the random noise cancels out across frames
