@@ -9,6 +9,26 @@ from textual.widgets import Footer, Header, Rule, Static
 from ..scanner import PhotoInfo
 from .common import _render_cull_card
 
+_METRIC_LABEL = {
+    "sharpness": "blurry",
+    "exposure":  "exposure",
+    "noise":     "noisy",
+    "resolution": "low-res",
+    "exif":      "high-ISO",
+}
+
+
+def _culprit_labels(info: PhotoInfo, n: int = 2) -> str:
+    """Return the n worst-scoring metric names as a compact string."""
+    if not info.score_breakdown:
+        return ""
+    worst = sorted(info.score_breakdown.items(), key=lambda kv: kv[1])[:n]
+    return " · ".join(
+        f"{_METRIC_LABEL.get(k, k)} [dim]{v:.0f}[/]"
+        for k, v in worst
+        if v < 50
+    )
+
 
 class CullReviewScreen(Screen):
     """Shows all flagged photos one at a time; user toggles inclusion."""
@@ -54,10 +74,13 @@ class CullReviewScreen(Screen):
         check = "[bold red]⚑[/]" if is_selected else "[dim]○[/]"
         score_color = "red" if info.score < self._threshold * 0.5 else "yellow"
         size_kb = info.path.stat().st_size // 1024
+        culprits = _culprit_labels(info)
+        culprit_str = f"  [yellow]{culprits}[/]" if culprits else ""
         return (
             f"{cursor_prefix}{check}  [bold]{info.path.name}[/]"
             f"  [dim]{size_kb} KB[/]"
             f"  score [bold {score_color}]{info.score:.1f}[/]"
+            f"{culprit_str}"
         )
 
     def _refresh_item(self, i: int) -> None:
