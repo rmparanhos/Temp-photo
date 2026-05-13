@@ -121,6 +121,48 @@ Done. No export, no import, no manual flagging.
 
 ---
 
+## Lightroom cloud workflow
+
+If you use **Lightroom (cloud)** instead of Lightroom Classic, the photos made available offline are stored inside the `Lightroom Library.lrlibrary` bundle — a folder that macOS displays as a single file.
+
+**Finding the photos:**
+
+1. In Finder, right-click `Lightroom Library.lrlibrary` → **Show Package Contents**
+2. Navigate to `originals/` — photos are organised by year/month inside
+
+The full path is usually:
+```
+~/Pictures/Lightroom Library.lrlibrary/originals/
+```
+
+**Workflow with ella:**
+
+```bash
+ella ~/Pictures/Lightroom\ Library.lrlibrary/originals/
+```
+
+At the confirmation screen, press **M** (Move). ella moves the rejected photos into a `_duplicates/` or `_culled/` subfolder inside the bundle. Lightroom detects that the files moved and marks them as **missing** (exclamation mark icon).
+
+Then in Lightroom:
+
+1. In the toolbar, open the filter and select **Missing Photos** (or search by the `!` badge)
+2. Select all missing photos → right-click → **Remove from Catalog**
+3. The photos are NOT deleted — they stay in `_duplicates/` or `_culled/` as a backup
+4. Once you're confident, you can delete those folders manually from Finder
+
+```
+originals/
+├── 2024/
+│   ├── 01/
+│   │   ├── IMG_001.jpg          ← kept, still in Lightroom
+│   │   ├── _duplicates/
+│   │   │   └── IMG_002.jpg      ← moved by ella, shows as missing in LR
+│   │   └── _culled/
+│   │       └── IMG_003.jpg      ← moved by ella, shows as missing in LR
+```
+
+---
+
 ## Project structure
 
 ```
