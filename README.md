@@ -247,6 +247,7 @@ The photo with the highest score is suggested as the one to keep. The user can o
 - [x] Mode selection screen — choose between duplicates or cull after picking a folder
 
 ### Next
+- [ ] **Parallel scoring with ThreadPoolExecutor:** score multiple photos simultaneously using threads — PIL and NumPy release the GIL during C-level operations (JPEG decode, convolution, array math), so threads achieve real parallelism across cores; combine with a pre-resize to ~1200px to cut per-photo cost before parallelising
 - [ ] **Per-metric cull thresholds:** flag photos that fail a specific criterion regardless of total score (e.g. `sharpness < 20` = blurry, `exposure < 15` = too dark/bright) — configurable via CLI flags
 - [ ] **ASCII thumbnail preview:** render each photo as colored ASCII art (`▀▄█▒░`) inside the TUI, sized proportionally using the character aspect ratio — works in any terminal, no protocol dependency
 - [ ] **Open photo in system viewer:** press `O` on any photo in the group review to open it in the OS default viewer (Preview on macOS, xdg-open on Linux) — TUI stays open
