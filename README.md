@@ -121,6 +121,34 @@ Done. No export, no import, no manual flagging.
 
 ---
 
+## Lightroom cloud workflow
+
+If you use **Lightroom (cloud)** instead of Lightroom Classic, the photos made available offline are stored inside the `Lightroom Library.lrlibrary` bundle — a folder that macOS displays as a single file.
+
+**Finding the photos:**
+
+1. In Finder, right-click `Lightroom Library.lrlibrary` → **Show Package Contents**
+2. Navigate to `originals/` — photos are organised by year/month inside
+
+The full path is usually:
+```
+~/Pictures/Lightroom Library.lrlibrary/originals/
+```
+
+**Important: only use XMP mode**
+
+Do **not** use Move (`M`) on photos inside the bundle — moving files out of it breaks Lightroom's references and the photos appear as missing in the app.
+
+Always use **X (Write XMP)** instead. ella writes the sidecar next to the original inside the bundle; Lightroom reads it and handles deletion cleanly through its own interface.
+
+```bash
+ella ~/Pictures/Lightroom\ Library.lrlibrary/originals/
+```
+
+Then in Lightroom: tap the photo → check that it shows the reject flag (`X`) → select all rejected → delete.
+
+---
+
 ## Project structure
 
 ```
