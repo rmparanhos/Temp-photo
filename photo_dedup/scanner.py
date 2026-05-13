@@ -8,6 +8,8 @@ from typing import Callable, Optional
 import imagehash
 from PIL import Image
 
+from . import cache as _cache
+
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".webp", ".bmp", ".heic"}
 
 HASH_SIZE = 16
@@ -37,13 +39,19 @@ def compute_hashes(
     progress: Optional[Callable[[int], None]] = None,
 ) -> None:
     for i, info in enumerate(photos):
-        try:
-            with Image.open(info.path) as img:
-                info.phash = imagehash.phash(img.convert("RGB"), hash_size=HASH_SIZE)
-        except Exception as e:
-            info.error = str(e)
+        cached = _cache.get(info.path)
+        if cached is not None:
+            info.phash = cached
+        else:
+            try:
+                with Image.open(info.path) as img:
+                    info.phash = imagehash.phash(img.convert("RGB"), hash_size=HASH_SIZE)
+                _cache.put(info.path, info.phash)
+            except Exception as e:
+                info.error = str(e)
         if progress:
             progress(i + 1)
+    _cache.flush()
 
 
 def group_similar(photos: list[PhotoInfo], threshold: int) -> list[list[PhotoInfo]]:
