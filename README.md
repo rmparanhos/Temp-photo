@@ -14,6 +14,10 @@ That's it. `ella` is now available as a command anywhere in your terminal.
 
 > Requires [pipx](https://pipx.pypa.io). Install it with `brew install pipx` or `pip install pipx`.
 
+To reinstall after pulling updates: `pipx install . --force`
+
+**Supported formats:** `.jpg` `.jpeg` `.png` `.tiff` `.tif` `.webp` `.bmp` `.heic`
+
 ## Usage
 
 ```bash
@@ -38,7 +42,7 @@ After selecting a folder, ella asks what to do:
 Groups photos by perceptual hash. For each group you pick which photo to keep; the rest are moved to `_duplicates/` or marked as rejected via XMP.
 
 **C — Cull low-quality photos**  
-Scores every photo individually. Photos below the cull threshold are listed for review. You decide which ones to process.
+Scores every photo individually. Photos below the cull threshold are listed for review — each entry shows the worst-scoring metrics (e.g. `blurry 12 · exposure 28`) so you know at a glance why the photo was flagged. You decide which ones to process.
 
 ### TUI navigation — duplicate mode
 
@@ -71,11 +75,15 @@ At the confirmation screen (both modes), choose how to handle the selected files
 
 Running `ella` without arguments opens a history screen with your recently scanned folders. Select one and press `Enter` to continue to mode selection. Press `N` to enter a new folder path.
 
+### Cache
+
+Hashes and quality scores are cached per file in `~/.ella/hash_cache.json` (invalidated automatically if the file changes). The cache is shared between modes — if you ran duplicates mode first, cull mode reuses the scores already computed, and vice versa.
+
 ---
 
 ## Lightroom Classic workflow
 
-ella integrates with Lightroom Classic via XMP sidecar files — no plugin required.
+ella integrates with Lightroom Classic via XMP sidecar files — no plugin required. Both modes (duplicates and cull) support this workflow.
 
 **1. Run ella on your Lightroom folder**
 
@@ -85,16 +93,17 @@ Point ella directly at the folder where Lightroom already stores your originals:
 ella ~/Pictures/Lightroom/2024/
 ```
 
-**2. Review groups and confirm**
+**2. Review and confirm**
 
-Go through each group in the TUI. At the confirmation screen, press **X** (Write XMP).
+- **Duplicates mode:** go through each group, pick the keeper, press **X** at the confirmation screen.
+- **Cull mode:** review the flagged photos, toggle any you want to keep, press **X** at the confirmation screen.
 
-ella writes a `.xmp` file next to each duplicate marking it as rejected:
+ella writes a `.xmp` sidecar next to each rejected photo:
 
 ```
 2024/
 ├── IMG_001.jpg        ← keeper
-├── IMG_002.jpg        ← duplicate
+├── IMG_002.jpg        ← rejected
 ├── IMG_002.xmp        ← written by ella: lr:pickStatus = -1
 ```
 
@@ -102,13 +111,13 @@ ella writes a `.xmp` file next to each duplicate marking it as rejected:
 
 In Lightroom Classic: `Metadata → Read Metadata from Files`
 
-Lightroom picks up the XMP files and marks the duplicates as rejected (the `X` flag).
+Lightroom picks up the XMP files and marks the photos as rejected (the `X` flag).
 
 **4. Delete rejected photos**
 
 `Photo → Delete Rejected Photos`
 
-Done. No export, no import, no duplicates in the catalog.
+Done. No export, no import, no manual flagging.
 
 ---
 
@@ -150,7 +159,7 @@ A conventional hash (MD5, SHA) changes completely if a single pixel differs. **p
 3. Applies the **DCT** (Discrete Cosine Transform) — the same transform used internally by JPEG — which separates image frequencies from coarsest to finest
 4. Takes only the low frequencies (the "visual skeleton"), discarding textures and noise
 5. Compares each coefficient against the mean: higher → `1`, lower → `0`
-6. Result: a 64-bit string, the image's fingerprint
+6. Result: a 256-bit string (16×16 grid), the image's fingerprint
 
 **Hamming distance:** to compare two hashes, count how many bits differ. That count is the Hamming distance.
 
