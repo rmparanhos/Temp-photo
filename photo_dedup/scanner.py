@@ -39,14 +39,14 @@ def compute_hashes(
     progress: Optional[Callable[[int], None]] = None,
 ) -> None:
     for i, info in enumerate(photos):
-        cached = _cache.get(info.path)
+        cached = _cache.get_hash(info.path)
         if cached is not None:
             info.phash = cached
         else:
             try:
                 with Image.open(info.path) as img:
                     info.phash = imagehash.phash(img.convert("RGB"), hash_size=HASH_SIZE)
-                _cache.put(info.path, info.phash)
+                _cache.put_hash(info.path, info.phash)
             except Exception as e:
                 info.error = str(e)
         if progress:

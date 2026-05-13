@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image, ImageFilter
 
+from . import cache as _cache
 from .scanner import PhotoInfo
 
 WEIGHTS: dict[str, float] = {
@@ -49,8 +50,7 @@ def _exposure_score(arr_rgb: np.ndarray) -> float:
     return brightness_score + contrast_score
 
 
-def _resolution_score(width: int, height: int, max_mp: float) -> float:
-    mp = (width * height) / 1_000_000
+def _resolution_score_from_mp(mp: float, max_mp: float) -> float:
     return (mp / max_mp * 100) if max_mp > 0 else 0.0
 
 
@@ -92,22 +92,39 @@ def _exif_score(img: Image.Image) -> float:
 
 
 def score_photo(info: PhotoInfo, max_mp: float) -> None:
+    # Check cache for the expensive absolute parts
+    parts = _cache.get_score_parts(info.path)
+    if parts is not None:
+        breakdown = {
+            "sharpness": parts["sharpness"],
+            "exposure":  parts["exposure"],
+            "resolution": _resolution_score_from_mp(parts["mp"], max_mp),
+            "noise":     parts["noise"],
+            "exif":      parts["exif"],
+        }
+        info.score = sum(breakdown[k] * WEIGHTS[k] for k in WEIGHTS)
+        info.score_breakdown = breakdown
+        return
+
     try:
         with Image.open(info.path) as img:
             img_rgb = img.convert("RGB")
             arr = np.array(img_rgb)
             gray = arr.mean(axis=2).astype(np.uint8)
             w, h = img_rgb.size
+            mp = (w * h) / 1_000_000
 
-            raw_sharpness = _laplacian_variance(gray)
-            breakdown = {
-                "sharpness": min(raw_sharpness / 5000 * 100, 100.0),
-                "exposure": _exposure_score(arr),
-                "resolution": _resolution_score(w, h, max_mp),
-                "noise": _noise_score(gray),
-                "exif": _exif_score(img),
+            parts = {
+                "sharpness": min(_laplacian_variance(gray) / 5000 * 100, 100.0),
+                "exposure":  _exposure_score(arr),
+                "noise":     _noise_score(gray),
+                "exif":      _exif_score(img),
+                "mp":        mp,
             }
+            _cache.put_score_parts(info.path, parts)
 
+        breakdown = {**parts, "resolution": _resolution_score_from_mp(parts["mp"], max_mp)}
+        breakdown.pop("mp")
         info.score = sum(breakdown[k] * WEIGHTS[k] for k in WEIGHTS)
         info.score_breakdown = breakdown
     except Exception as e:
@@ -119,6 +136,10 @@ def score_photo(info: PhotoInfo, max_mp: float) -> None:
 def score_group(group: list[PhotoInfo]) -> None:
     max_mp = 0.0
     for info in group:
+        parts = _cache.get_score_parts(info.path)
+        if parts is not None:
+            max_mp = max(max_mp, parts["mp"])
+            continue
         try:
             with Image.open(info.path) as img:
                 w, h = img.size
@@ -127,4 +148,5 @@ def score_group(group: list[PhotoInfo]) -> None:
             pass
     for info in group:
         score_photo(info, max_mp)
+    _cache.flush()
     group.sort(key=lambda p: p.score, reverse=True)
