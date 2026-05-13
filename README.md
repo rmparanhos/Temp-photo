@@ -125,9 +125,10 @@ Done. No export, no import, no manual flagging.
 
 ```
 ella/
-├── scanner.py   — loads photos, computes pHash, groups similar ones
-├── scorer.py    — quality heuristics (scores each photo 0–100)
-├── culler.py    — scores all photos; returns those below cull threshold
+├── deduper.py   — dedup pipeline: hash → group → score
+├── culler.py    — cull pipeline: score all → filter by threshold
+├── scanner.py   — loads photos, computes pHash, groups similar ones (utilities)
+├── scorer.py    — quality heuristics: score per photo and per group (utilities)
 ├── cache.py     — disk cache for hashes + score parts (~/.ella/hash_cache.json)
 ├── history.py   — folder history (~/.ella/history.json)
 ├── xmp.py       — writes Lightroom XMP sidecar files
@@ -136,7 +137,7 @@ ella/
     ├── common.py    — shared rendering helpers
     ├── history.py   — HistoryScreen, NewFolderModal
     ├── mode.py      — ModeScreen (duplicates vs cull)
-    ├── scan.py      — ScanScreen, CullScanScreen
+    ├── scan.py      — ScanScreen (uses deduper), CullScanScreen (uses culler)
     ├── dupes.py     — GroupScreen, ReviewOrchestrator
     ├── cull.py      — CullReviewScreen
     ├── confirm.py   — ConfirmScreen, CullConfirmScreen
