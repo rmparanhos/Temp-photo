@@ -264,6 +264,7 @@ The photo with the highest score is suggested as the one to keep. The user can o
 - [ ] **Super photo:** merge N similar photos by weighted pixel averaging (weight = sharpness score) to reduce noise — the random noise cancels out across frames
 - [ ] **Focus stacking:** for bracketed shots with different focus points, merge the sharpest region of each frame into a single all-in-focus image
 - [ ] **Lightroom cloud API:** detect and mark duplicates without downloading originals, via Adobe's REST API
+- [ ] **ScoreViz only mode:** view the score of each photo on the folder being analyzed
 
 ### Ideas
 - [ ] **Video support (`--videos`):** detect similar videos by sampling frames and comparing pHash sequences; score by resolution, bitrate, codec, duration and per-frame sharpness; requires `ffmpeg` and a hash cache to avoid reprocessing large files
